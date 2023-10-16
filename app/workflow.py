@@ -6,12 +6,13 @@ import make_serialization
 
 class Workflow(object):
 
-    def __init__(self, name, tasks, creation_at=None, id=None, subscribers=[]):
+    def __init__(self, name, tasks, creation_at=None, id=None, subscribers=[],host = None):
         self.creation_at = creation_at if creation_at is not None else datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.name = name
         self.tasks = tasks
         self.id = id
         self.subscribers = []
+        self.host = host
 
     def updateTaskStatus(self, task, status):
         self.checkIfTaskExists(task)
@@ -28,13 +29,17 @@ class Workflow(object):
 
     def addDependency(self, task, dependency):
         self.checkIfTaskExists(task)
-        self.checkIfTaskExists(dependency)
-        self.tasks[dependency]['nexts'].append(task)
-        self.tasks[task]['prevs'].append(dependency)
+        if self.checkIfTaskExists(dependency) == False: #transversal point
+            self.tasks[task]['prevs'].append(dependency)
+        else:
+            self.tasks[dependency]['nexts'].append(task)
+            self.tasks[task]['prevs'].append(dependency)
 
     def checkIfTaskExists(self, task):
         if not task in self.tasks:
-            raise KeyError('Task %s does not exist'%task)
+            return False
+        else: return True
+            #raise KeyError('Task %s does not exist'%task)
 
     def getLastTaskStatus(self, task):
         self.checkIfTaskExists(task)
@@ -55,7 +60,7 @@ class Workflow(object):
     
     def addSubscriber(self, workflow_id):
         self.subscribers.append(workflow_id)
-        print self.subscribers
+        print(self.subscribers)
 
     def to_json(self):  # New special method.
         return self.__dict__

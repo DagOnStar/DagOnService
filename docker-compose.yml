@@ -1,0 +1,32 @@
+version: '3'
+services:
+  dagon_service: #API Gatewaey
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    environment:      
+      MONGO_DB: dagon_mongodb #ip for the services
+    ports:
+      - "57000:5000"
+    restart: always
+    networks:
+      - dagon_net
+
+  dagon_mongodb: #mongoDB
+    image: mongo:4.0
+    restart: always
+    environment:
+      data-volume: /data/db
+    volumes:
+      - data-volume:/data/db
+    networks:
+      - dagon_net
+    #command: mongod --quiet --logpath /dev/null 
+    depends_on:
+      - dagon_service
+
+networks: 
+  dagon_net:
+
+volumes:
+  data-volume:
