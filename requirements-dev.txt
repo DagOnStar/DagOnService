@@ -1,5 +1,5 @@
 -r requirements.txt
-pytest==8.3.4
+pytest==9.2.0
 mongomock==4.3.0
 requests==2.32.3
 # The DAGonStar revision DAGonWeb pins: used by tests/test_dagonstar_alignment.py.
