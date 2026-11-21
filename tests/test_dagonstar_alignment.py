@@ -113,3 +113,32 @@ def test_failed_task_is_reported(live_service, scratch):
     assert task["status"] == "FAILED"
     import requests
     assert requests.get(route + "/api/v1/workflows/" + workflow.workflow_id).json()["status"] == "FAILED"
+
+
+def test_token_protected_service_with_token_capable_client(scratch):
+    """DAGonStar clients newer than 3.0.0 send ``[dagon_service] token``."""
+    import inspect
+
+    if "token" not in inspect.signature(API.__init__).parameters:
+        pytest.skip("this DAGonStar client cannot send a token (3.0.0 and earlier)")
+    app = make_app(api_token="s3cret")
+    server = make_server("127.0.0.1", 0, app, threaded=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        route = "http://127.0.0.1:%d" % server.server_port
+        cfg = config(route, scratch)
+        cfg["dagon_service"]["token"] = "s3cret"
+        workflow = dagon.Workflow("Tokened", config=cfg)
+        workflow.add_task(DagonTask(TaskType.BATCH, "A", "true"))
+        workflow.make_dependencies()
+        workflow.run()
+        api = API(route, token="s3cret")
+        assert api.get_task(workflow.workflow_id, "A")["task"]["status"] == "FINISHED"
+        without = dict(cfg)
+        without["dagon_service"] = {"route": route, "use": "True"}
+        with pytest.raises(Exception):
+            dagon.Workflow("Untokened", config=without)
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)

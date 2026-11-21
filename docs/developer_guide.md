@@ -10,7 +10,10 @@ dagonservice/            the application package
   storage.py             WorkflowStore (MongoDB) and serialisers
   api.py                 legacy and /api/v1 blueprints, errors, token check
   notifier.py            webhooks
+  migrate.py             upgrade of prototype documents (flask upgrade-documents)
   templates/, static/    dashboard
+scripts/                 migrate-legacy-deployment.sh (1.x → 2.x data migration)
+.github/                 CI, image publishing, releases, Dependabot
 tests/                   pytest suite (mongomock; DAGonStar for alignment tests)
 docs/                    this documentation
 wsgi.py                  WSGI entry point
@@ -36,11 +39,21 @@ checkout instead, run `pip install -e ../dagonstar`.
 | --- | --- |
 | `tests/test_legacy_api.py` | The DAGonStar contract: paths, verbs, status codes and shapes; validation; no phantom tasks; idempotent dependencies; dotted and `$` task names; concurrent status reports are not lost. |
 | `tests/test_api_v1.py` | The versioned API, events, graph, document export, history cap, token rules, dashboard and security headers, settings parsing. |
-| `tests/test_dagonstar_alignment.py` | Unmodified DAGonStar registers, runs and reports against a live server; failures propagate; exported documents reload in DAGonStar. |
+| `tests/test_dagonstar_alignment.py` | Unmodified DAGonStar registers, runs and reports against a live server; failures propagate; exported documents reload in DAGonStar; a token-capable client authenticates (skipped for 3.0.0). |
+| `tests/test_migrate.py` | Prototype documents are upgraded to schema 2 idempotently and remain usable. |
 
-CI (`.github/workflows/ci.yml`) byte-compiles the package, checks the dashboard
-script with `node --check`, runs the suite on Python 3.12 and 3.13, and builds
-the container image.
+## Continuous integration and delivery
+
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| `.github/workflows/ci.yml` | Push to `main` or `development`, pull requests, manual, and called by the publish workflow | Byte-compiles, checks the dashboard script with `node --check`, runs `pytest` on Python 3.12 and 3.13, builds the image and smoke-tests it with MongoDB, and runs the 1.x → 2.x migration against a seeded MongoDB 4.0 volume. |
+| `.github/workflows/docker-publish.yml` | Push to `main`, `v*` tags, manual | Re-runs CI, then publishes a `linux/amd64` + `linux/arm64` image to `ghcr.io/<owner>/dagonservice`, tagged with the branch, the version (`2.0.0`, `2.0`) and the commit (`sha-…`). |
+| `.github/workflows/release.yml` | `v*` tags | Checks that the tag equals `dagonservice.__version__`, then creates a GitHub release whose notes are the matching `CHANGELOG.md` section. |
+| `.github/dependabot.yml` | Weekly | Update pull requests for pip, GitHub Actions and the Docker base image. DAGonStar is excluded: it is pinned to DAGonWeb's revision and is bumped together with it. |
+
+To release: set `__version__` in `dagonservice/__init__.py`, add the
+`## X.Y.Z — date` section to `CHANGELOG.md`, merge to `main`, then
+`git tag vX.Y.Z && git push origin vX.Y.Z`.
 
 ## Rules for changes
 

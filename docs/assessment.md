@@ -67,15 +67,33 @@ the Docker Compose stack with MongoDB 7.0.
 | DAGonWeb's front-end conventions (no build step, `textContent`, light/dark, phone width) | Followed by the dashboard. |
 | DAGonWeb's Flask line | Flask 3.0.3 / Werkzeug 3.0.3, as pinned by DAGonWeb. |
 
-## Residual issues outside this repository
+## Issues found in the DAGonStar client
 
-The following were observed during end-to-end testing and belong to the
-DAGonStar client; they are documented in
-[DAGonStar integration](dagonstar_integration.md#known-client-side-limitations):
+End-to-end testing exposed three defects in the DAGonStar 3.0.0 client. They
+were fixed in DAGonStar after 3.0.0, with tests in its
+`tests/test_service_api.py`; [DAGonStar integration](dagonstar_integration.md#client-versions)
+compares the two client versions.
 
-1. the client cannot send an access token, which limits the optional token to
-   reads or to non-DAGonStar clients;
-2. `update_task` does not URL-encode the value it places in the query string;
-3. a `$` in a task name is expanded by the shell in DAGonStar's generated
-   launcher (`cd` into a truncated path), so the task fails although the
-   service records it correctly.
+1. The client could not send an access token, which limited the service's
+   optional token to reads or to other clients. It now reads
+   `[dagon_service] token` (or `DAGON_SERVICE_TOKEN`) and sends a Bearer token,
+   and requests have a timeout.
+2. `update_task` placed the value in the query string without URL-encoding it.
+   Values and path segments are now encoded.
+3. A `$` in a task name was expanded by the shell in the generated launcher
+   (`cd` into a truncated path), so the task failed although the service
+   recorded it correctly. Scratch directory names now keep only
+   `[A-Za-z0-9._-]`, and the launcher's `cd` is quoted.
+
+## Follow-up work
+
+- **Upgrade path.** `scripts/migrate-legacy-deployment.sh` dumps the prototype's
+  MongoDB 4.0 volume with a temporary `mongo:4.0` container, restores it into
+  MongoDB 7.0, and runs `flask --app wsgi upgrade-documents`, which converts
+  prototype documents to schema version 2 (`dagonservice/migrate.py`). CI runs
+  the whole procedure against a seeded 4.0 volume.
+- **Continuous delivery.** CI is reusable; images are published to GHCR after
+  the tests pass, tagged releases get notes from this changelog, and Dependabot
+  watches pip, Actions and Docker dependencies.
+- **Licence.** The repository is now licensed under Apache-2.0, like DAGonStar
+  and DAGonWeb.

@@ -45,13 +45,27 @@ checks keep working. Tokens are compared in constant time.
 
 ### The DAGonStar client and the token
 
-The DAGonStar 3.0 client sends no authentication header. With a token
-configured, its registration and status reports are rejected with 401;
-DAGonStar then raises at `Workflow(...)`. Today the token is therefore suitable
-for deployments where the service is fed by clients you control (scripts,
-DAGonWeb integrations, a future DAGonStar release) and for protecting reads of
-a registry that is populated on a trusted network. For DAGonStar 3.0, protect
-the service at the network level instead:
+DAGonStar releases after 3.0.0 send the token when it is configured in
+`dagon.ini` (or in the `DAGON_SERVICE_TOKEN` environment variable, which keeps
+it out of files that are shared or exported):
+
+```ini
+[dagon_service]
+route = https://dagon-service.example.org
+use = True
+token = <the value of DAGONSERVICE_API_TOKEN>
+```
+
+The client sends it as `Authorization: Bearer <token>` on every request; the
+liveness check stays unauthenticated. A client without the token is refused
+with 401 when it registers, and `Workflow(...)` raises, so a misconfiguration is
+detected immediately rather than half-way through a run.
+`tests/test_dagonstar_alignment.py` verifies the exchange whenever the
+installed DAGonStar supports it.
+
+The DAGonStar **3.0.0** client cannot send a token. If you must serve 3.0.0
+clients, leave `DAGONSERVICE_API_TOKEN` unset and protect the service at the
+network level instead:
 
 - bind the published port to a private interface, or allow only the subnets of
   the submission and compute hosts in a firewall;
@@ -59,8 +73,9 @@ the service at the network level instead:
   `PATCH`, `DELETE`) to those subnets and, if needed, requires authentication
   for the dashboard and `GET` routes.
 
-Adding an optional token to `[dagon_service]` in the DAGonStar client is a
-small, backwards-compatible change and the recommended long-term solution.
+Network restrictions remain good practice even with a token: the token
+authenticates clients, it does not encrypt traffic, so always combine it with
+TLS.
 
 ## Operational recommendations
 

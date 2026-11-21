@@ -1,5 +1,9 @@
 # DAGonService
 
+[![CI](https://github.com/DagOnStar/DagOnService/actions/workflows/ci.yml/badge.svg)](https://github.com/DagOnStar/DagOnService/actions/workflows/ci.yml)
+[![Container image](https://github.com/DagOnStar/DagOnService/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/DagOnStar/DagOnService/actions/workflows/docker-publish.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 DAGonService is the registration and remote-monitoring service of the
 [DAGonStar](https://github.com/DagOnStar/dagonstar) workflow engine. A DAGonStar
 workflow with `[dagon_service] use = True` registers itself when it is created,
@@ -37,7 +41,12 @@ installations work unchanged.
   dependency graph, the task table and the event log; light and dark themes,
   usable on a phone.
 - **Operable.** Gunicorn, MongoDB 7, health checks, an unprivileged container,
-  a duplicate-name policy, an optional access token, and strict validation.
+  a duplicate-name policy, an optional access token (sent by DAGonStar
+  releases after 3.0.0 from `[dagon_service] token`), and strict validation.
+- **Upgradable.** One script migrates a 1.x deployment (MongoDB 4.0) and
+  converts its documents ([deployment guide](docs/deployment.md#migrating-the-data)).
+- **Delivered continuously.** CI on every push; multi-architecture images on
+  `ghcr.io/dagonstar/dagonservice` from `main` and release tags.
 
 ## Quick start
 
@@ -45,6 +54,10 @@ installations work unchanged.
 docker compose up --build -d
 curl http://localhost:57000/api/v1/health
 ```
+
+Once an image has been published from `main` or a release tag, you can skip
+the build by setting `image: ghcr.io/dagonstar/dagonservice:main` (or a version
+tag) for the `dagon_service` service.
 
 Then enable the service in your workflow's `dagon.ini`:
 
@@ -98,6 +111,11 @@ pytest
 The tests use mongomock and need no database server; the alignment tests
 install and run DAGonStar. See [AGENTS.md](AGENTS.md) for the rules every change
 must follow, and [CHANGELOG.md](CHANGELOG.md) for the release history.
+
+## License
+
+DAGonService is distributed under the [Apache License 2.0](LICENSE), like
+DAGonStar and DAGonWeb. See [NOTICE](NOTICE).
 
 ## Requirements
 

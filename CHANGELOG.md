@@ -16,7 +16,16 @@ A revision of the 2018 prototype that keeps the HTTP contract of the DAGonStar
 - Duplicate-name policy: `replace` (default), `reject`, `keep`.
 - Optional API token for mutations (and optionally reads).
 - Optional webhooks for every event.
-- Test suite, including end-to-end tests with the real DAGonStar client; CI.
+- Test suite, including end-to-end tests with the real DAGonStar client.
+- CI/CD: reusable CI (tests on Python 3.12/3.13, image smoke test, 1.x
+  migration test), multi-architecture image publishing to GHCR, tagged
+  releases with notes from this changelog, Dependabot.
+- `scripts/migrate-legacy-deployment.sh` and `flask --app wsgi upgrade-documents`
+  (`python -m dagonservice.migrate`) to migrate 1.x deployments.
+- Apache-2.0 `LICENSE` and `NOTICE`.
+- Documentation of the DAGonStar client's token support (`[dagon_service] token`,
+  `DAGON_SERVICE_TOKEN`), added to DAGonStar after 3.0.0 together with URL
+  encoding, request timeouts and shell-safe scratch directory names.
 - Documentation in `docs/`, `AGENTS.md`, this changelog.
 
 ### Changed

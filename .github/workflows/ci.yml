@@ -5,12 +5,15 @@ on:
     branches: [main, development]
   pull_request:
   workflow_dispatch:
+  workflow_call:  # reused by docker-publish.yml before an image is published
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # github.workflow differs when called from docker-publish.yml, so the two runs
+  # for one push never cancel each other.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -46,8 +49,32 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build and smoke-test with MongoDB
         run: |
-          docker compose up --build -d
-          for i in $(seq 1 30); do curl -sf http://localhost:57000/api/v1/health && exit_code=0 && break; exit_code=1; sleep 2; done
+          docker compose up --build -d --wait
+          status=0
+          curl -sf http://localhost:57000/api/v1/health || status=1
           docker compose logs dagon_service
           docker compose down -v
-          exit $exit_code
+          exit "$status"
+
+  migration:
+    name: Upgrade from a 1.x (MongoDB 4.0) deployment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create a prototype-era volume
+        run: |
+          docker volume create ci_data-volume
+          docker run -d --name seed -v ci_data-volume:/data/db mongo:4.0
+          for _ in $(seq 1 30); do docker exec seed mongo --quiet --eval 'db.adminCommand("ping").ok' && break; sleep 2; done
+          docker exec seed mongo --quiet dagon --eval 'db.workflows.insertOne({creation_at: "2018-11-16 16:03:05", name: "Legacy", id: null, host: "localhost", subscribers: [], tasks: {A: {name: "A", status: "FINISHED", nexts: [], prevs: [], command: "echo", type: "batch"}}})'
+          docker rm -f seed
+      - name: Run the migration script
+        env:
+          COMPOSE: docker compose -p ci
+        run: scripts/migrate-legacy-deployment.sh ci_data-volume | tee migrate.log && grep -q "Upgraded 1 workflow" migrate.log
+      - name: Serve the migrated workflow
+        run: |
+          docker compose -p ci up -d --wait
+          curl -sf http://localhost:57000/getworkflow/Legacy
+          curl -sf http://localhost:57000/api/v1/workflows | grep -q '"status":"FINISHED"'
+          docker compose -p ci down -v

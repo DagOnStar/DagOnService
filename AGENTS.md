@@ -22,6 +22,8 @@ DAGonService is a Flask + MongoDB service that registers DAGonStar workflows and
 - `dagonservice/storage.py`: `WorkflowStore`, serialisers (`workflow_to_json`, `workflow_to_document`, `workflow_graph`, `event_to_json`).
 - `dagonservice/api.py`: `legacy` and `v1` blueprints, error handlers, optional token check.
 - `dagonservice/notifier.py`: best-effort webhooks.
+- `dagonservice/migrate.py`: idempotent upgrade of prototype documents (`flask --app wsgi upgrade-documents`); `scripts/migrate-legacy-deployment.sh`: 1.x (MongoDB 4.0 volume) → 2.x migration. Keep both in step with any schema change and bump `model.SCHEMA_VERSION`.
+- `.github/workflows/`: `ci.yml` (reusable; tests, image smoke test, migration test), `docker-publish.yml` (GHCR after CI), `release.yml` (tag must equal `__version__`; notes from `CHANGELOG.md`). Run `actionlint` after editing them.
 - `dagonservice/templates/dashboard.html`, `dagonservice/static/`: the dashboard.
 - `tests/`: pytest; `conftest.make_app(**settings)` builds an app on mongomock.
 - `docs/`: user, operator and developer documentation.
@@ -37,10 +39,13 @@ docker compose up --build                    # service + MongoDB 7 on :57000
 ```
 
 ## Verification
-- `pytest` must pass, including `tests/test_dagonstar_alignment.py`, which runs unmodified DAGonStar against a live server. Do not skip it by uninstalling DAGonStar.
+- `pytest` must pass, including `tests/test_dagonstar_alignment.py`, which runs unmodified DAGonStar against a live server. Do not skip it by uninstalling DAGonStar. The token test runs only with a DAGonStar newer than 3.0.0 (`pip install -e ../dagonstar`); run it that way when touching authentication.
 - `python -m compileall -q dagonservice tests wsgi.py` and `node --check dagonservice/static/dashboard.js`.
 - For storage changes, also run a workflow against the Compose stack (real MongoDB): mongomock does not catch every server behaviour.
 - Check dashboard changes in a browser: light and dark themes, and phone width (375 px) with no horizontal page scroll.
+
+## Licensing
+- The project is Apache-2.0 (`LICENSE`, `NOTICE`). Add only dependencies with compatible licences.
 
 ## Style
 - Python: type hints, small functions, no hidden global mutable state; configuration flows through `Settings`, never `os.environ` at import time.

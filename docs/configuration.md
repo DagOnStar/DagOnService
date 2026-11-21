@@ -10,7 +10,7 @@ explicit message rather than producing surprising behaviour later.
 | `MONGO_DB` | — | Legacy: a MongoDB host name, used as `mongodb://<MONGO_DB>:27017` when `DAGONSERVICE_MONGO_URI` is not set. |
 | `DAGONSERVICE_DB_NAME` | `dagon` | Database name. `dagon` is the database used by the prototype. |
 | `DAGONSERVICE_DUPLICATE_POLICY` | `replace` | `replace`, `reject` or `keep`; see [Data model](data_model.md#duplicate-names). |
-| `DAGONSERVICE_API_TOKEN` | unset | Enables the token check for mutating requests; see [Security](security.md). |
+| `DAGONSERVICE_API_TOKEN` | unset | Enables the token check for mutating requests; DAGonStar clients after 3.0.0 send it from `[dagon_service] token`. See [Security](security.md). |
 | `DAGONSERVICE_PROTECT_READS` | `false` | With a token, also require it for reads (except `/check` and `/api/v1/health`). |
 | `DAGONSERVICE_WEBHOOK_URLS` | unset | Comma-separated `http(s)` URLs that receive every event. |
 | `DAGONSERVICE_WEBHOOK_TIMEOUT` | `2.0` | Seconds before a webhook delivery is abandoned. |
