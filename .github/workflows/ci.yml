@@ -25,7 +25,7 @@ jobs:
       matrix:
         python: ["3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
@@ -46,7 +46,7 @@ jobs:
     name: Container image
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build and smoke-test with MongoDB
         run: |
           docker compose up --build -d --wait
@@ -60,7 +60,7 @@ jobs:
     name: Upgrade from a 1.x (MongoDB 4.0) deployment
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Create a prototype-era volume
         run: |
           docker volume create ci_data-volume
