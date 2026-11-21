@@ -148,4 +148,6 @@ legacy `creation_at` string is used when `created_at` is absent, missing
 `history` reads as empty, and the legacy `datetime` member of old history
 entries is returned as `at`. Task names in those documents were stored
 unencoded; names without `.`, `$` or `%` — the only ones the prototype could
-update — are unaffected. See [Deployment](deployment.md#upgrading-from-the-2018-prototype).
+update — are unaffected. `flask --app wsgi upgrade-documents` converts such
+documents to schema version 2 in place; see
+[Deployment](deployment.md#migrating-the-data).

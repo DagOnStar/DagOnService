@@ -62,6 +62,15 @@ def create_app(settings: Optional[Any] = None, database: Optional[Any] = None) -
     app.register_blueprint(v1)
     app.register_blueprint(legacy)  # last: it owns the catch-all /<workflow_id> routes
 
+    @app.cli.command("upgrade-documents")
+    def upgrade_documents() -> None:
+        """Convert workflow documents of the 2018 prototype to schema version 2."""
+        from .migrate import upgrade_all
+        from .model import SCHEMA_VERSION
+
+        count = upgrade_all(database)
+        print("Upgraded %d workflow document(s) to schema version %d." % (count, SCHEMA_VERSION))
+
     @app.after_request
     def _security_headers(response):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")

@@ -67,19 +67,53 @@ Version 2.0 keeps the database name (`dagon`), the collection (`workflows`),
 the port (57000 on the host) and every route the DAGonStar client calls, so
 DAGonStar installations need no change.
 
+### Migrating the data
+
+MongoDB moves from 4.0 to 7.0, and a MongoDB data directory cannot skip major
+versions, so the old volume cannot simply be mounted by the new database. The
+Compose volume is also renamed, from `<project>_data-volume` to
+`<project>_dagon_mongodb_data`. One script performs the whole migration:
+
+```bash
+docker compose -p <old project name> down              # stop 1.x; keeps its volume
+git pull && git checkout main                          # obtain 2.x
+scripts/migrate-legacy-deployment.sh                   # or: ... <old volume name>
+docker compose up -d
+```
+
+The script
+
+1. finds the single volume whose name ends in `_data-volume` (or uses the name
+   you pass), starts a temporary `mongo:4.0` container on it, and writes a
+   `mongodump` archive of the `dagon` database to `./dagon-legacy.archive`,
+   which you should keep as a backup;
+2. starts the MongoDB 7.0 service of the new Compose file and restores the
+   archive into it;
+3. runs `flask --app wsgi upgrade-documents`, which converts each prototype
+   document to schema version 2 — canonical states, deduplicated dependency
+   lists and subscribers, a history built from any recorded entries, UTC
+   timestamps, encoded task keys — and marks it `migrated_from: prototype`.
+   The command is idempotent and can be run again at any time.
+
+The old volume is never modified; remove it with `docker volume rm` once you
+have checked the result. Set `COMPOSE="docker compose -p <name>"` when the new
+deployment uses an explicit project name, and `LEGACY_MONGO_PLATFORM` if your
+platform cannot run the `linux/amd64` image of MongoDB 4.0 (Docker Desktop on
+Apple silicon emulates it). CI exercises exactly this procedure against a
+seeded MongoDB 4.0 volume.
+
+For a database outside Compose, run `mongodump --db dagon --archive` against
+the old server, `mongorestore --archive` against the new one, and
+`DAGONSERVICE_MONGO_URI=... python -m dagonservice.migrate`.
+
+### Other changes
+
 - The old Compose file passed `MONGO_DB=dagon_mongodb`; it is still honoured.
-  The new Compose file uses `DAGONSERVICE_MONGO_URI` and a renamed volume,
-  `dagon_mongodb_data`. To keep the data of the old `data-volume`, either
-  rename the volume in `docker-compose.yml` or dump and restore the `dagon`
-  database.
 - The container now listens on 57000 rather than 5000. Update any custom
   port mapping (`57000:5000` becomes `57000:57000`).
-- MongoDB moves from 4.0 to 7.0. A data directory cannot skip major versions;
-  migrate with `mongodump` from the old container and `mongorestore` into the
-  new one rather than reusing the volume.
-- Existing documents remain readable (see
-  [Data model](data_model.md#documents-written-by-the-prototype)); new
-  registrations use schema version 2.
+- Documents that were not upgraded remain readable (see
+  [Data model](data_model.md#documents-written-by-the-prototype)), but running
+  the upgrade is recommended; new registrations use schema version 2.
 - The Socket.IO "Centinel" notifier is removed; use
   `DAGONSERVICE_WEBHOOK_URLS` or the events endpoint.
 - Behaviour that changed intentionally: unknown tasks and invalid statuses are
