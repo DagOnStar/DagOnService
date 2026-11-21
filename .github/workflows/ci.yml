@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:  # reused by docker-publish.yml before an image is published
+
+permissions:
+  contents: read
+
+concurrency:
+  # github.workflow differs when called from docker-publish.yml, so the two runs
+  # for one push never cancel each other.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Byte-compile
+        run: python -m compileall -q dagonservice tests wsgi.py
+      - name: Check JavaScript syntax
+        run: node --check dagonservice/static/dashboard.js
+      - name: Run tests (includes the DAGonStar alignment tests)
+        run: pytest -q
+
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and smoke-test with MongoDB
+        run: |
+          docker compose up --build -d --wait
+          status=0
+          curl -sf http://localhost:57000/api/v1/health || status=1
+          docker compose logs dagon_service
+          docker compose down -v
+          exit "$status"
+
+  migration:
+    name: Upgrade from a 1.x (MongoDB 4.0) deployment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create a prototype-era volume
+        run: |
+          docker volume create ci_data-volume
+          docker run -d --name seed -v ci_data-volume:/data/db mongo:4.0
+          for _ in $(seq 1 30); do docker exec seed mongo --quiet --eval 'db.adminCommand("ping").ok' && break; sleep 2; done
+          docker exec seed mongo --quiet dagon --eval 'db.workflows.insertOne({creation_at: "2018-11-16 16:03:05", name: "Legacy", id: null, host: "localhost", subscribers: [], tasks: {A: {name: "A", status: "FINISHED", nexts: [], prevs: [], command: "echo", type: "batch"}}}, {writeConcern: {w: 1, j: true}})'
+          # A clean shutdown, as `docker compose down` does for a real 1.x deployment.
+          docker stop -t 30 seed
+          docker rm seed
+      - name: Run the migration script
+        env:
+          COMPOSE: docker compose -p ci
+        run: scripts/migrate-legacy-deployment.sh ci_data-volume | tee migrate.log && grep -q "Upgraded 1 workflow" migrate.log
+      - name: Serve the migrated workflow
+        run: |
+          docker compose -p ci up -d --wait
+          curl -sf http://localhost:57000/getworkflow/Legacy
+          curl -sf http://localhost:57000/api/v1/workflows | grep -q '"status":"FINISHED"'
+          docker compose -p ci down -v
