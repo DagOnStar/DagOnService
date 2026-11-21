@@ -66,8 +66,10 @@ jobs:
           docker volume create ci_data-volume
           docker run -d --name seed -v ci_data-volume:/data/db mongo:4.0
           for _ in $(seq 1 30); do docker exec seed mongo --quiet --eval 'db.adminCommand("ping").ok' && break; sleep 2; done
-          docker exec seed mongo --quiet dagon --eval 'db.workflows.insertOne({creation_at: "2018-11-16 16:03:05", name: "Legacy", id: null, host: "localhost", subscribers: [], tasks: {A: {name: "A", status: "FINISHED", nexts: [], prevs: [], command: "echo", type: "batch"}}})'
-          docker rm -f seed
+          docker exec seed mongo --quiet dagon --eval 'db.workflows.insertOne({creation_at: "2018-11-16 16:03:05", name: "Legacy", id: null, host: "localhost", subscribers: [], tasks: {A: {name: "A", status: "FINISHED", nexts: [], prevs: [], command: "echo", type: "batch"}}}, {writeConcern: {w: 1, j: true}})'
+          # A clean shutdown, as `docker compose down` does for a real 1.x deployment.
+          docker stop -t 30 seed
+          docker rm seed
       - name: Run the migration script
         env:
           COMPOSE: docker compose -p ci

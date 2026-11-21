@@ -95,8 +95,11 @@ The script
    timestamps, encoded task keys — and marks it `migrated_from: prototype`.
    The command is idempotent and can be run again at any time.
 
-The old volume is never modified; remove it with `docker volume rm` once you
-have checked the result. Set `COMPOSE="docker compose -p <name>"` when the new
+The workflow data in the old volume is only read — the temporary MongoDB 4.0
+is started on it and stopped cleanly — so you can repeat the migration or go
+back to 1.x; remove the volume with `docker volume rm` once you have checked the
+result. Stop the 1.x stack with `docker compose down` (not `docker kill`) before
+migrating, so that MongoDB 4.0 flushes its last writes. Set `COMPOSE="docker compose -p <name>"` when the new
 deployment uses an explicit project name, and `LEGACY_MONGO_PLATFORM` if your
 platform cannot run the `linux/amd64` image of MongoDB 4.0 (Docker Desktop on
 Apple silicon emulates it). CI exercises exactly this procedure against a

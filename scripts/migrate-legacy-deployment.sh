@@ -7,7 +7,8 @@
 #      the "dagon" database;
 #   2. starts the new MongoDB 7.0 service and restores the dump into it;
 #   3. converts the documents to schema version 2 (flask upgrade-documents).
-# The old volume is never modified; delete it yourself once you have checked the result.
+# Workflow data in the old volume is only read (mongod is started and stopped cleanly on it);
+# delete the volume yourself once you have checked the result.
 #
 # Usage: scripts/migrate-legacy-deployment.sh [OLD_VOLUME]
 #   OLD_VOLUME  default: the single existing volume whose name ends in "_data-volume"
@@ -37,7 +38,11 @@ fi
 docker volume inspect "$old_volume" >/dev/null
 
 legacy="dagonservice-legacy-$$"
-cleanup() { docker rm -f "$legacy" >/dev/null 2>&1 || true; }
+# Stop mongod cleanly (SIGTERM, then wait) so the old data files stay consistent.
+cleanup() {
+  docker stop -t 60 "$legacy" >/dev/null 2>&1 || true
+  docker rm -f "$legacy" >/dev/null 2>&1 || true
+}
 trap cleanup EXIT
 
 echo "==> Dumping database 'dagon' from $old_volume with $image"
@@ -46,9 +51,13 @@ for _ in $(seq 1 60); do
   docker exec "$legacy" mongo --quiet --eval 'db.adminCommand("ping").ok' >/dev/null 2>&1 && break
   sleep 2
 done
+count=$(docker exec "$legacy" mongo --quiet dagon --eval 'db.workflows.count()')
 docker exec "$legacy" mongodump --quiet --archive --db dagon > "$dump"
 cleanup
-echo "    wrote $dump ($(wc -c < "$dump" | tr -d ' ') bytes)"
+echo "    $count workflow document(s); wrote $dump ($(wc -c < "$dump" | tr -d ' ') bytes)"
+if [ "$count" = "0" ]; then
+  echo "    warning: the old database holds no workflows; is $old_volume the right volume?" >&2
+fi
 
 echo "==> Restoring into the MongoDB 7.0 service"
 "${compose[@]}" up -d --wait dagon_mongodb
@@ -59,5 +68,5 @@ echo "==> Converting documents to schema version 2"
 "${compose[@]}" run --rm --no-deps dagon_service flask --app wsgi upgrade-documents
 
 echo "==> Done. Start the service with: ${compose[*]} up -d"
-echo "    The old volume $old_volume was not modified; remove it when satisfied:"
+echo "    The data in $old_volume was only read; remove the volume when satisfied:"
 echo "    docker volume rm $old_volume"
