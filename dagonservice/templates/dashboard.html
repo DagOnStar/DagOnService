@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DAGonService</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+<body data-refresh-ms="{{ refresh_ms }}" data-protect-reads="{{ 'true' if protect_reads else 'false' }}">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="bar">
+    <h1>DAGonService <span class="muted">v{{ version }}</span></h1>
+    <p class="muted" id="health" role="status" aria-live="polite">Checking service…</p>
+  </header>
+
+  <main id="main">
+    <form id="token-form" class="card" hidden>
+      <label for="token">API token</label>
+      <div class="row">
+        <input id="token" type="password" autocomplete="off" spellcheck="false">
+        <button type="submit">Use token</button>
+      </div>
+      <p class="muted">Kept only in this browser tab (session storage).</p>
+    </form>
+
+    <section class="card" aria-labelledby="wf-title">
+      <div class="row between">
+        <h2 id="wf-title">Workflows</h2>
+        <div class="row">
+          <label for="filter" class="sr-only">Filter by name</label>
+          <input id="filter" type="search" placeholder="Filter by name">
+          <label for="status-filter" class="sr-only">Filter by status</label>
+          <select id="status-filter">
+            <option value="">All statuses</option>
+            <option>READY</option><option>WAITING</option><option>RUNNING</option>
+            <option>FINISHED</option><option>FAILED</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Name</th><th scope="col">Status</th><th scope="col">Tasks</th>
+            <th scope="col">Host</th><th scope="col">Updated</th></tr></thead>
+          <tbody id="workflows"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" id="detail" aria-labelledby="detail-title" hidden>
+      <div class="row between">
+        <h2 id="detail-title">Workflow</h2>
+        <a id="download" class="button" href="#" download>DAGonStar JSON</a>
+      </div>
+      <p class="muted" id="detail-meta"></p>
+      <div class="graph-wrap"><svg id="graph" role="img" aria-labelledby="graph-desc"><desc id="graph-desc">Task dependency graph</desc></svg></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Task</th><th scope="col">Type</th><th scope="col">Status</th>
+            <th scope="col">Depends on</th><th scope="col">Working directory</th></tr></thead>
+          <tbody id="tasks"></tbody>
+        </table>
+      </div>
+      <h3>Events</h3>
+      <ol id="events" class="events"></ol>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>

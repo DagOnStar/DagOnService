@@ -1,0 +1,28 @@
+[project]
+name = "dagonservice"
+dynamic = ["version"]
+description = "Registration and remote monitoring service for DAGonStar workflows"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name = "DAGonStar contributors"}]
+dependencies = ["Flask>=3.0,<4", "pymongo>=4.6,<5"]
+
+[project.optional-dependencies]
+server = ["gunicorn>=22"]
+
+[tool.setuptools]
+packages = ["dagonservice"]
+
+[tool.setuptools.dynamic]
+version = {attr = "dagonservice.__version__"}
+
+[tool.setuptools.package-data]
+dagonservice = ["templates/*.html", "static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Byte-compile
+        run: python -m compileall -q dagonservice tests wsgi.py
+      - name: Check JavaScript syntax
+        run: node --check dagonservice/static/dashboard.js
+      - name: Run tests (includes the DAGonStar alignment tests)
+        run: pytest -q
+
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and smoke-test with MongoDB
+        run: |
+          docker compose up --build -d
+          for i in $(seq 1 30); do curl -sf http://localhost:57000/api/v1/health && exit_code=0 && break; exit_code=1; sleep 2; done
+          docker compose logs dagon_service
+          docker compose down -v
+          exit $exit_code

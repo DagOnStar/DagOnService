@@ -1,32 +1,41 @@
-version: '3'
+# DAGonService and its MongoDB database.
+#   docker compose up --build
+# DAGonStar clients then use:  [dagon_service] route = http://<host>:57000, use = True
 services:
-  dagon_service: #API Gatewaey
-    build:
-      context: ./
-      dockerfile: ./Dockerfile
-    environment:      
-      MONGO_DB: dagon_mongodb #ip for the services
-    ports:
-      - "57000:5000"
-    restart: always
-    networks:
-      - dagon_net
-
-  dagon_mongodb: #mongoDB
-    image: mongo:4.0
-    restart: always
+  dagon_service:
+    build: .
+    image: dagonservice:latest
     environment:
-      data-volume: /data/db
-    volumes:
-      - data-volume:/data/db
+      DAGONSERVICE_MONGO_URI: mongodb://dagon_mongodb:27017
+      DAGONSERVICE_DB_NAME: dagon
+      DAGONSERVICE_DUPLICATE_POLICY: ${DAGONSERVICE_DUPLICATE_POLICY:-replace}
+      DAGONSERVICE_API_TOKEN: ${DAGONSERVICE_API_TOKEN:-}
+      DAGONSERVICE_WEBHOOK_URLS: ${DAGONSERVICE_WEBHOOK_URLS:-}
+    ports:
+      - "${DAGONSERVICE_PORT:-57000}:57000"
+    depends_on:
+      dagon_mongodb:
+        condition: service_healthy
+    restart: unless-stopped
     networks:
       - dagon_net
-    #command: mongod --quiet --logpath /dev/null 
-    depends_on:
-      - dagon_service
 
-networks: 
+  dagon_mongodb:
+    image: mongo:7.0
+    restart: unless-stopped
+    volumes:
+      - dagon_mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - dagon_net
+
+networks:
   dagon_net:
 
 volumes:
-  data-volume:
+  dagon_mongodb_data:
